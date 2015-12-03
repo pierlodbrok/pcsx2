@@ -109,8 +109,7 @@ int psxRecMemConstRead8(u32 x86reg, u32 mem, u32 sign)
 			return psxHw4ConstRead8(x86reg, mem&0x1fffffff, sign);
 
 		case 0x1000:
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)DEV9read8);
+			xStdCall((void*)(uptr)DEV9read8, mem&0x1fffffff);
 			if( sign ) xMOVSX(xRegister32(x86reg), al);
 			else xMOVZX(xRegister32(x86reg), al);
 			return 0;
@@ -213,15 +212,13 @@ int psxRecMemConstRead16(u32 x86reg, u32 mem, u32 sign)
 			return 0;
 
 		case 0x1f90:
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)SPU2read);
+			xStdCall((void*)(uptr)SPU2read, mem&0x1fffffff);
 			if( sign ) xMOVSX(xRegister32(x86reg), ax);
 			else xMOVZX(xRegister32(x86reg), ax);
 			return 0;
 
 		case 0x1000:
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)DEV9read16);
+			xStdCall((void*)(uptr)DEV9read16, mem&0x1fffffff);
 			if( sign ) xMOVSX(xRegister32(x86reg), ax);
 			else xMOVZX(xRegister32(x86reg), ax);
 			return 0;
@@ -323,8 +320,7 @@ int psxRecMemConstRead32(u32 x86reg, u32 mem)
 			return 0;
 
 		case 0x1000:
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)DEV9read32);
+			xStdCall((void*)(uptr)DEV9read32, mem&0x1fffffff);
 			return 1;
 
 		default:
@@ -406,8 +402,7 @@ int psxRecMemConstWrite8(u32 mem, int mmreg)
 
 		case 0x1000:
 			_recPushReg(mmreg);
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)DEV9write8);
+			xStdCall((void*)(uptr)DEV9write8, mem&0x1fffffff);
 			return 0;
 
 		default:
@@ -569,14 +564,12 @@ int psxRecMemConstWrite16(u32 mem, int mmreg)
 
 		case 0x1f90:
 			_recPushReg(mmreg);
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)SPU2write);
+			xStdCall((void*)(uptr)SPU2write, mem&0x1fffffff);
 			return 0;
 
 		case 0x1000:
 			_recPushReg(mmreg);
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)DEV9write16);
+			xStdCall((void*)(uptr)DEV9write16, mem&0x1fffffff);
 			return 0;
 
 		default:
@@ -789,8 +782,7 @@ int psxRecMemConstWrite32(u32 mem, int mmreg)
 
 		case 0x1000:
 			_recPushReg(mmreg);
-			xPUSH(mem&0x1fffffff);
-			xCALL((void*)(uptr)DEV9write32);
+			xStdCall((void*)(uptr)DEV9write32, mem&0x1fffffff);
 			return 0;
 
 		case 0x1ffe:
