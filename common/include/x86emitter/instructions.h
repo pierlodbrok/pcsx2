@@ -180,8 +180,14 @@ namespace x86Emitter
 
 	//////////////////////////////////////////////////////////////////////////////////////////
 	// Helper function to handle the various functions ABI
+	extern void xFastCall(const xIndirect32& func, const xRegister32& a1 = xEmptyReg, const xRegister32& a2 = xEmptyReg);
+
 	extern void xFastCall(void* func, const xRegister32& a1 = xEmptyReg, const xRegister32& a2 = xEmptyReg);
-	extern void xFastCall(void* func, const xRegisterSSE& a1, const xRegisterSSE& a2);
+
+	extern void xFastCall(void* func, u32 a1, const xRegister32& a2);
+
+	extern void xFastCall(void* func, const xIndirectVoid& a1);
+
 	extern void xFastCall(void* func, u32 a1, u32 a2);
 	extern void xFastCall(void* func, u32 a1);
 
@@ -190,8 +196,11 @@ namespace x86Emitter
 	class xScopedStackFrame
 	{
 		bool m_base_frame;
+		bool m_save_base_pointer;
+		int  m_offset;
 
-		xScopedStackFrame(bool base_frame);
+		public:
+		xScopedStackFrame(bool base_frame, bool save_base_pointer = false, int offset = 0);
 		~xScopedStackFrame();
 	};
 
