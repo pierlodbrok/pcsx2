@@ -338,7 +338,7 @@ void recBranchCall( void (*func)() )
 void recCall( void (*func)() )
 {
 	iFlushCall(FLUSH_INTERPRETER);
-	xCALL(func);
+	xFastCall((void*)func);
 }
 
 // =====================================================================================================
@@ -378,8 +378,7 @@ static DynGenFunc* _DynGen_JITCompile()
 
 	u8* retval = xGetAlignedCallTarget();
 
-	xMOV( ecx, ptr[&cpuRegs.pc] );
-	xCALL( recRecompile );
+	xFastCall( (void*)recRecompile, ptr[&cpuRegs.pc] );
 
 	xMOV( eax, ptr[&cpuRegs.pc] );
 	xMOV( ebx, eax );
@@ -415,7 +414,7 @@ static DynGenFunc* _DynGen_DispatcherEvent()
 {
 	u8* retval = xGetPtr();
 
-	xCALL( recEventTest );
+	xFastCall( (void*)recEventTest );
 
 	return (DynGenFunc*)retval;
 }
@@ -444,7 +443,7 @@ static DynGenFunc* _DynGen_DispatchBlockDiscard()
 {
 	u8* retval = xGetPtr();
 	xEMMS();
-	xCALL(dyna_block_discard);
+	xFastCall((void*)dyna_block_discard);
 	xJMP(ExitRecompiledCode);
 	return (DynGenFunc*)retval;
 }
@@ -453,7 +452,7 @@ static DynGenFunc* _DynGen_DispatchPageReset()
 {
 	u8* retval = xGetPtr();
 	xEMMS();
-	xCALL(dyna_page_reset);
+	xFastCall((void*)dyna_page_reset);
 	xJMP(ExitRecompiledCode);
 	return (DynGenFunc*)retval;
 }
@@ -896,7 +895,7 @@ void SetBranchReg( u32 reg )
 
 //	xCMP(ptr32[&cpuRegs.pc], 0);
 //	j8Ptr[5] = JNE8(0);
-//	xCALL((void*)(uptr)tempfn);
+//	xFastCall((void*)(uptr)tempfn);
 //	x86SetJ8( j8Ptr[5] );
 
 	iFlushCall(FLUSH_EVERYTHING);
@@ -1181,11 +1180,11 @@ void recMemcheck(u32 op, u32 bits, bool store)
 	if (bits == 128)
 		xAND(ecx, ~0x0F);
 
-	xCALL(standardizeBreakpointAddress);
+	xFastCall((void*)standardizeBreakpointAddress, ecx);
 	xMOV(ecx,eax);
 	xMOV(edx,eax);
 	xADD(edx,bits/8);
-	
+
 	// ecx = access address
 	// edx = access address+size
 
@@ -1200,11 +1199,11 @@ void recMemcheck(u32 op, u32 bits, bool store)
 			continue;
 
 		// logic: memAddress < bpEnd && bpStart < memAddress+memSize
-		
+
 		xMOV(eax,standardizeBreakpointAddress(checks[i].end));
 		xCMP(ecx,eax);				// address < end
 		xForwardJGE8 next1;			// if address >= end then goto next1
-		
+
 		xMOV(eax,standardizeBreakpointAddress(checks[i].start));
 		xCMP(eax,edx);				// start < address+size
 		xForwardJGE8 next2;			// if start >= address+size then goto next2
@@ -1212,10 +1211,10 @@ void recMemcheck(u32 op, u32 bits, bool store)
 		// hit the breakpoint
 		if (checks[i].result & MEMCHECK_LOG) {
 			xMOV(edx, store);
-			xCALL(&dynarecMemLogcheck);
+			xFastCall((void*)dynarecMemLogcheck, ecx, edx);
 		}
 		if (checks[i].result & MEMCHECK_BREAK) {
-			xCALL(&dynarecMemcheck);
+			xFastCall((void*)dynarecMemcheck);
 		}
 
 		next1.SetTarget();
@@ -1228,7 +1227,7 @@ void encodeBreakpoint()
 	if (isBreakpointNeeded(pc) != 0)
 	{
 		iFlushCall(FLUSH_EVERYTHING|FLUSH_PC);
-		xCALL(&dynarecCheckBreakpoint);
+		xFastCall((void*)dynarecCheckBreakpoint);
 	}
 }
 
@@ -1277,7 +1276,7 @@ void recompileNextInstruction(int delayslot)
 
 	s_pCode = (int *)PSM( pc );
 	pxAssert(s_pCode);
-	
+
 	if( IsDebugBuild )
 		xMOV(eax, pc);		// acts as a tag for delimiting recompiled instructions when viewing x86 disasm.
 
@@ -1640,7 +1639,7 @@ static void __fastcall recRecompile( const u32 startpc )
 
 	if (0x8000d618 == startpc)
 		DbgCon.WriteLn("Compiling block @ 0x%08x", startpc);
-	
+
 	s_pCurBlock = PC_GETBLOCK(startpc);
 
 	pxAssert(s_pCurBlock->GetFnptr() == (uptr)JITCompile
@@ -1654,14 +1653,14 @@ static void __fastcall recRecompile( const u32 startpc )
 	pxAssert(s_pCurBlockEx);
 
 	if (g_SkipBiosHack && HWADDR(startpc) == EELOAD_START) {
-		xCALL(eeloadReplaceOSDSYS);
+		xFastCall((void*)eeloadReplaceOSDSYS);
 		xCMP(ptr32[&cpuRegs.pc], startpc);
 		xJNE(DispatcherReg);
 	}
 
 	// this is the only way patches get applied, doesn't depend on a hack
 	if (HWADDR(startpc) == ElfEntry) {
-		xCALL(eeGameStarting);
+		xFastCall((void*)eeGameStarting);
 		// Apply patch as soon as possible. Normally it is done in
 		// eeGameStarting but first block is already compiled.
 		//
@@ -1691,20 +1690,18 @@ static void __fastcall recRecompile( const u32 startpc )
 		// [TODO] : These must be enabled from the GUI or INI to be used, otherwise the
 		// code that calls PreBlockCheck will not be generated.
 
-		xMOV(ecx, pc);
-		xCALL(PreBlockCheck);
+		xFastCall((void*)PreBlockCheck, pc);
 	}
 
 	if (EmuConfig.Gamefixes.GoemonTlbHack) {
 		if (pc == 0x33ad48 || pc == 0x35060c) {
 			// 0x33ad48 and 0x35060c are the return address of the function (0x356250) that populate the TLB cache
-			xCALL(GoemonPreloadTlb);
+			xFastCall((void*)GoemonPreloadTlb);
 		} else if (pc == 0x3563b8) {
 			// Game will unmap some virtual addresses. If a constant address were hardcoded in the block, we would be in a bad situation.
 			AtomicExchange( eeRecNeedsReset, true );
 			// 0x3563b8 is the start address of the function that invalidate entry in TLB cache
-			xMOV(ecx, ptr[&cpuRegs.GPR.n.a0.UL[ 0 ] ]);
-			xCALL(GoemonUnloadTlb);
+			xFastCall((void*)GoemonUnloadTlb, ptr[&cpuRegs.GPR.n.a0.UL[0]]);
 		}
 	}
 
@@ -1725,7 +1722,7 @@ static void __fastcall recRecompile( const u32 startpc )
 
 	while(1) {
 		BASEBLOCK* pblock = PC_GETBLOCK(i);
-		
+
 		// stop before breakpoints
 		if (isBreakpointNeeded(i) != 0 || isMemcheckNeeded(i) != 0)
 		{
