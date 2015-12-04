@@ -75,10 +75,8 @@ void mVUreset(microVU& mVU, bool resetReserve) {
 	if (resetReserve) mVU.cache_reserve->Reset();
 	
 	x86SetPtr(mVU.dispCache);
-	mVUdispatcherA(mVU);
-	mVUdispatcherB(mVU);
-	mVUdispatcherC(mVU);
-	mVUdispatcherD(mVU);
+	mVUdispatcherAB(mVU);
+	mVUdispatcherCD(mVU);
 	mVUemitSearch();
 
 	// Clear All Program Data
